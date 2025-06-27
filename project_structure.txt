@@ -1,0 +1,243 @@
+# Discord AI Core - Updated Project Structure
+
+## 📁 Project Layout (Discord ToS Compliant)
+
+```
+discord-ai-core/
+├── discord-ai-core.js           # Main entry point & startup
+├── package.json                 # Project configuration
+├── .env.template               # Environment configuration template
+├── .env                        # Your actual configuration (create from template)
+├── README.md                   # Documentation
+├── LICENSE                     # MIT License
+│
+├── modules/                    # Core framework modules (no "J" prefix)
+│   ├── core.js                # Main orchestration & intelligence
+│   ├── discord-client.js      # Discord Gateway client & API
+│   ├── ai-engine.js           # AI decision making & processing
+│   ├── server-manager.js      # Autonomous server management
+│   ├── command-handler.js     # Slash commands & interactions
+│   ├── nlp-engine.js         # Natural language processing
+│   └── event-system.js       # Event handling & middleware
+│
+├── examples/                   # Usage examples & tutorials
+│   ├── basic-bot.js           # Simple bot setup
+│   ├── advanced-server.js     # Full server management
+│   ├── custom-commands.js     # Custom command creation
+│   └── plugin-development.js  # Plugin system usage
+│
+├── scripts/                   # Utility scripts
+│   ├── setup.js              # Initial setup wizard
+│   ├── create-bot.js         # Discord bot creation helper
+│   └── deploy.js             # Deployment utilities
+│
+├── tests/                     # Test suite
+│   ├── core-tests.js         # Core functionality tests
+│   ├── ai-tests.js           # AI engine tests
+│   └── integration-tests.js   # Full integration tests
+│
+└── docs/                      # Documentation
+    ├── getting-started.md     # Quick start guide
+    ├── api-reference.md       # API documentation
+    ├── examples.md           # Code examples
+    └── deployment.md         # Production deployment
+```
+
+## 🔧 Key Changes Made
+
+### ✅ Discord ToS Compliance
+- **Removed all user token functionality**
+- **Bot token authentication only**
+- **Proper Discord API usage**
+- **No self-bot features**
+- **Official Discord Gateway connection**
+
+### 🏗️ Architecture Updates
+- **Removed "J" prefix from all modules**
+- **Clean, professional naming convention**
+- **Zero external AI dependencies (uses APIs)**
+- **Modular framework design**
+- **Production-ready structure**
+
+### 📋 Module Overview
+
+#### **`discord-client.js`** - Discord Connection
+- Discord Gateway WebSocket client
+- Discord API HTTP client with rate limiting
+- Bot token authentication only
+- Event handling (messages, interactions, etc.)
+- Guild, channel, and user management
+
+#### **`ai-engine.js`** - AI Intelligence
+- External AI API integration (Together AI, OpenRouter)
+- Multi-provider fallback system
+- Context-aware decision making
+- Learning and adaptation algorithms
+- Error analysis and self-healing
+
+#### **`core.js`** - Framework Orchestration
+- Main framework coordination
+- Module initialization and management
+- Event routing and handling
+- Performance monitoring
+- Health checks and metrics
+
+#### **`server-manager.js`** - Autonomous Management
+- Complete server administration
+- Channel and role management
+- Permission optimization
+- User management and moderation
+- Automated improvements
+
+#### **`command-handler.js`** - Modern Commands
+- Slash command system
+- Button and select menu interactions
+- Modal form handling
+- Auto-complete functionality
+- Context menu commands
+
+#### **`nlp-engine.js`** - Language Processing
+- Natural language understanding
+- Intent detection and analysis
+- Context extraction
+- Sentiment analysis
+- Command interpretation
+
+## 🚀 Quick Start
+
+### 1. **Setup Discord Bot**
+```bash
+# Clone or download the framework
+git clone https://github.com/discord-ai-core/framework.git
+cd discord-ai-core
+
+# Install dependencies
+npm install
+
+# Copy environment template
+cp .env.template .env
+```
+
+### 2. **Configure Bot**
+```bash
+# Edit .env file with your tokens
+nano .env
+
+# Required:
+BOT_TOKEN=your_bot_token_here
+TOGETHER_API_KEY=your_ai_api_key_here
+```
+
+### 3. **Start Bot**
+```bash
+# Development mode
+npm run dev
+
+# Production mode
+npm start
+```
+
+## 🎯 Core Features
+
+### **Discord Bot Framework**
+- Complete Discord API client implementation
+- Gateway connection with auto-reconnect
+- Slash commands and modern interactions
+- Event-driven architecture
+- Built-in rate limiting and error handling
+
+### **AI Intelligence System**
+- Natural language command processing
+- Autonomous server management decisions
+- Predictive analytics and issue prevention
+- Self-learning and adaptation
+- Multi-provider AI fallback
+
+### **Server Management**
+- Channel creation and organization
+- Role hierarchy optimization  
+- Permission matrix management
+- User moderation and management
+- Server customization automation
+
+## 🛡️ Compliance & Security
+
+### **Discord ToS Compliance**
+- ✅ Bot token authentication only
+- ✅ No user token usage
+- ✅ Official Discord API only
+- ✅ Proper permission handling
+- ✅ Rate limit compliance
+
+### **Security Features**
+- Environment variable configuration
+- Multi-layer permission validation
+- Audit logging for all actions
+- Graceful error handling
+- Safe defaults and confirmations
+
+## 📚 Usage Examples
+
+### **Basic Server Management**
+```javascript
+// Natural language admin commands
+"dm all users 'Welcome to the new server!'"
+"create gaming channels for FPS games"
+"improve this server structure"
+"set up reaction roles for teams"
+```
+
+### **Autonomous Operations**
+```javascript
+// AI automatically handles
+- Server health monitoring
+- Issue prediction and prevention
+- User support ticket creation
+- Permission optimization
+- Channel organization
+```
+
+### **Modern Discord Features**
+```javascript
+// Slash commands
+/server optimize
+/admin setup moderation
+/ai chat What's the server status?
+/help create-ticket
+```
+
+## 🔄 Migration Path
+
+### **From Previous Version**
+1. **Remove "J" prefix references**
+2. **Update import statements**
+3. **Replace user token with bot token**
+4. **Update configuration format**
+5. **Test Discord permissions**
+
+### **Environment Updates**
+```bash
+# Old format (remove)
+J_DISCORD_TOKEN=...
+
+# New format (use)
+BOT_TOKEN=...
+```
+
+## 📊 Production Deployment
+
+### **Recommended Setup**
+- Node.js 18+ runtime
+- Environment variable management
+- Process manager (PM2)
+- Monitoring and logging
+- Database for persistent storage (optional)
+
+### **Scaling Options**
+- Multiple bot instances
+- Sharding for large servers
+- Load balancing
+- Redis for distributed caching
+- Microservice architecture
+
+This updated structure provides a **professional, Discord ToS compliant bot framework** that maintains all the AI intelligence features while using proper bot authentication and official Discord APIs.
