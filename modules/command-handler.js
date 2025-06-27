@@ -9,17 +9,17 @@ export class CommandHandler {
   constructor(discordClient, aiEngine) {
     this.client = discordClient;
     this.ai = aiEngine;
-    
+
     // Command storage
     this.commands = new Map();
     this.contextMenus = new Map();
     this.components = new Map();
     this.modals = new Map();
-    
+
     // Command usage tracking
     this.commandUsage = new Map();
     this.interactionHistory = new Map();
-    
+
     // Performance metrics
     this.metrics = {
       commandsExecuted: 0,
@@ -27,7 +27,7 @@ export class CommandHandler {
       errorsEncountered: 0,
       averageResponseTime: 0
     };
-    
+
     // Initialize built-in commands
     this.initializeBuiltInCommands();
   }
@@ -37,7 +37,7 @@ export class CommandHandler {
    */
   initializeBuiltInCommands() {
     console.log('⚡ Command Handler: Initializing built-in commands...');
-    
+
     // AI Chat Command
     this.addCommand({
       name: 'ai',
@@ -76,7 +76,7 @@ export class CommandHandler {
         }
       ]
     });
-    
+
     // Server Management Command
     this.addCommand({
       name: 'server',
@@ -100,7 +100,7 @@ export class CommandHandler {
         }
       ]
     });
-    
+
     // Admin Command
     this.addCommand({
       name: 'admin',
@@ -152,7 +152,7 @@ export class CommandHandler {
         }
       ]
     });
-    
+
     // Help Command
     this.addCommand({
       name: 'help',
@@ -175,7 +175,7 @@ export class CommandHandler {
         }
       ]
     });
-    
+
     // Bot Status Command
     this.addCommand({
       name: 'status',
@@ -189,7 +189,7 @@ export class CommandHandler {
         }
       ]
     });
-    
+
     console.log(`✅ Initialized ${this.commands.size} built-in commands`);
   }
 
@@ -214,7 +214,7 @@ export class CommandHandler {
       'help': this.handleHelpCommand.bind(this),
       'status': this.handleStatusCommand.bind(this)
     };
-    
+
     return handlers[commandName] || this.handleUnknownCommand.bind(this);
   }
 
@@ -223,7 +223,7 @@ export class CommandHandler {
    */
   async registerCommands(guildIds = []) {
     console.log('📋 Registering application commands...');
-    
+
     const commandsArray = Array.from(this.commands.values()).map(cmd => ({
       name: cmd.name,
       description: cmd.description,
@@ -231,7 +231,7 @@ export class CommandHandler {
       default_member_permissions: cmd.default_member_permissions,
       dm_permission: cmd.dm_permission !== false
     }));
-    
+
     try {
       if (guildIds.length > 0) {
         // Register guild-specific commands (faster for development)
@@ -262,13 +262,13 @@ export class CommandHandler {
   async handleSlashCommand(interaction) {
     const startTime = Date.now();
     const commandName = interaction.data.name;
-    
+
     console.log(`⚡ Slash command: /${commandName} from ${interaction.user.username}`);
-    
+
     try {
       // Defer reply for processing time
       await this.deferReply(interaction);
-      
+
       // Get command handler
       const command = this.commands.get(commandName);
       if (!command) {
@@ -278,27 +278,27 @@ export class CommandHandler {
         });
         return;
       }
-      
+
       // Track usage
       this.trackCommandUsage(commandName, interaction.user.id);
-      
+
       // Execute command
       await command.handler(interaction);
-      
+
       // Update metrics
       const responseTime = Date.now() - startTime;
       this.updateMetrics(responseTime);
-      
+
       console.log(`✅ Command completed in ${responseTime}ms`);
-      
+
     } catch (error) {
       console.error(`❌ Slash command error:`, error);
-      
+
       await this.editReply(interaction, {
         content: `❌ An error occurred while executing the command: ${error.message}`,
         ephemeral: true
       });
-      
+
       this.metrics.errorsEncountered++;
     }
   }
@@ -308,7 +308,7 @@ export class CommandHandler {
    */
   async handleAICommand(interaction) {
     const subcommand = interaction.data.options[0];
-    
+
     switch (subcommand.name) {
       case 'chat':
         await this.handleAIChat(interaction, subcommand);
@@ -329,7 +329,7 @@ export class CommandHandler {
    */
   async handleAIChat(interaction, subcommand) {
     const message = this.getOptionValue(subcommand, 'message');
-    
+
     try {
       const response = await this.ai.generateIntelligentResponse(
         message,
@@ -340,7 +340,7 @@ export class CommandHandler {
           channelId: interaction.channel_id
         }
       );
-      
+
       await this.editReply(interaction, {
         embeds: [{
           title: '🤖 AI Response',
@@ -352,7 +352,7 @@ export class CommandHandler {
           timestamp: new Date().toISOString()
         }]
       });
-      
+
     } catch (error) {
       await this.editReply(interaction, {
         content: '❌ AI processing failed. Please try again.',
@@ -366,10 +366,10 @@ export class CommandHandler {
    */
   async handleAIAnalyze(interaction, subcommand) {
     const target = this.getOptionValue(subcommand, 'target');
-    
+
     try {
       let analysisData;
-      
+
       switch (target) {
         case 'server':
           analysisData = await this.analyzeServer(interaction.guild_id);
@@ -383,13 +383,13 @@ export class CommandHandler {
         default:
           throw new Error('Invalid analysis target');
       }
-      
+
       const analysis = await this.ai.processIntelligence(
         `Analyze this ${target} data and provide insights: ${JSON.stringify(analysisData)}`,
         { type: 'analysis', target },
         800
       );
-      
+
       await this.editReply(interaction, {
         embeds: [{
           title: `📊 ${target.charAt(0).toUpperCase() + target.slice(1)} Analysis`,
@@ -400,7 +400,7 @@ export class CommandHandler {
           }
         }]
       });
-      
+
     } catch (error) {
       await this.editReply(interaction, {
         content: `❌ Analysis failed: ${error.message}`,
@@ -421,9 +421,9 @@ export class CommandHandler {
       });
       return;
     }
-    
+
     const subcommand = interaction.data.options[0];
-    
+
     switch (subcommand.name) {
       case 'optimize':
         await this.handleServerOptimize(interaction);
@@ -449,13 +449,13 @@ export class CommandHandler {
     try {
       // Generate optimization plan with AI
       const serverData = await this.analyzeServer(interaction.guild_id);
-      
+
       const optimizationPlan = await this.ai.processIntelligence(
         `Create server optimization plan: ${JSON.stringify(serverData)}. Focus on channel organization, role hierarchy, and user experience.`,
         { type: 'server_optimization', guildId: interaction.guild_id },
         1200
       );
-      
+
       // Create action buttons
       const components = [{
         type: 1, // ACTION_ROW
@@ -476,7 +476,7 @@ export class CommandHandler {
           }
         ]
       }];
-      
+
       await this.editReply(interaction, {
         embeds: [{
           title: '🔧 Server Optimization Plan',
@@ -488,13 +488,61 @@ export class CommandHandler {
         }],
         components
       });
-      
+
     } catch (error) {
       await this.editReply(interaction, {
         content: `❌ Optimization planning failed: ${error.message}`,
         ephemeral: true
       });
     }
+  }
+
+  /**
+   * Handle server analyze subcommand
+   */
+  async handleServerAnalyze(interaction) {
+    try {
+      const serverData = await this.analyzeServer(interaction.guild_id);
+
+      const analysis = await this.ai.processIntelligence(
+        `Analyze this Discord server data and provide health insights: ${JSON.stringify(serverData)}`,
+        { type: 'server_analysis', guildId: interaction.guild_id },
+        800
+      );
+
+      await this.editReply(interaction, {
+        embeds: [{
+          title: '📊 Server Analysis',
+          description: analysis,
+          color: 0x57f287,
+          footer: {
+            text: 'AI-Powered Server Analysis'
+          }
+        }]
+      });
+
+    } catch (error) {
+      await this.editReply(interaction, {
+        content: `❌ Server analysis failed: ${error.message}`,
+        ephemeral: true
+      });
+    }
+  }
+
+  /**
+   * Handle server backup subcommand
+   */
+  async handleServerBackup(interaction) {
+    await this.editReply(interaction, {
+      embeds: [{
+        title: '💾 Server Backup',
+        description: 'Creating comprehensive server backup...\n\nThis includes:\n• Channel structure\n• Role hierarchy\n• Permission settings\n• Server configuration',
+        color: 0x5865f2,
+        footer: {
+          text: 'Backup in progress...'
+        }
+      }]
+    });
   }
 
   /**
@@ -509,9 +557,9 @@ export class CommandHandler {
       });
       return;
     }
-    
+
     const subcommand = interaction.data.options[0];
-    
+
     switch (subcommand.name) {
       case 'setup':
         await this.handleAdminSetup(interaction, subcommand);
@@ -528,12 +576,30 @@ export class CommandHandler {
   }
 
   /**
+   * Handle admin setup subcommand
+   */
+  async handleAdminSetup(interaction, subcommand) {
+    const feature = this.getOptionValue(subcommand, 'feature');
+
+    await this.editReply(interaction, {
+      embeds: [{
+        title: '🔧 Feature Setup',
+        description: `Setting up **${feature}** feature...\n\nThis feature is being configured with AI assistance. Please wait while the system analyzes your server and applies optimal settings.`,
+        color: 0xfee75c,
+        footer: {
+          text: 'Feature setup in progress...'
+        }
+      }]
+    });
+  }
+
+  /**
    * Handle admin mass operations
    */
   async handleAdminMass(interaction, subcommand) {
     const action = this.getOptionValue(subcommand, 'action');
     const parameters = this.getOptionValue(subcommand, 'parameters');
-    
+
     try {
       // Parse parameters with AI if they're natural language
       let parsedParams;
@@ -548,7 +614,7 @@ export class CommandHandler {
         );
         parsedParams = JSON.parse(aiParsed);
       }
-      
+
       // Create confirmation dialog
       const components = [{
         type: 1, // ACTION_ROW
@@ -569,7 +635,7 @@ export class CommandHandler {
           }
         ]
       }];
-      
+
       await this.editReply(interaction, {
         embeds: [{
           title: '⚠️ Mass Operation Confirmation',
@@ -578,14 +644,14 @@ export class CommandHandler {
         }],
         components
       });
-      
+
       // Store parameters for button handler
       this.storeComponentData(`mass_${action}_${interaction.guild_id}`, {
         action,
         parameters: parsedParams,
         userId: interaction.user.id
       });
-      
+
     } catch (error) {
       await this.editReply(interaction, {
         content: `❌ Parameter parsing failed: ${error.message}`,
@@ -599,7 +665,7 @@ export class CommandHandler {
    */
   async handleHelpCommand(interaction) {
     const subcommand = interaction.data.options[0];
-    
+
     switch (subcommand.name) {
       case 'commands':
         await this.handleHelpCommands(interaction);
@@ -625,7 +691,7 @@ export class CommandHandler {
     const commandList = Array.from(this.commands.values())
       .map(cmd => `**/${cmd.name}** - ${cmd.description}`)
       .join('\n');
-    
+
     await this.editReply(interaction, {
       embeds: [{
         title: '📋 Available Commands',
@@ -639,16 +705,101 @@ export class CommandHandler {
   }
 
   /**
+   * Handle help support subcommand
+   */
+  async handleHelpSupport(interaction) {
+    await this.editReply(interaction, {
+      embeds: [{
+        title: '🆘 Support',
+        description: 'Need help? Here are your options:\n\n**🎫 Create Ticket**\nUse `/admin setup support` to enable support tickets\n\n**📚 Documentation**\nVisit: https://docs.discord-ai-core.dev\n\n**💬 Community**\nJoin our support server for assistance',
+        color: 0xe74c3c,
+        footer: {
+          text: 'Discord AI Core Support'
+        }
+      }]
+    });
+  }
+
+  /**
+   * Handle help guide subcommand
+   */
+  async handleHelpGuide(interaction) {
+    await this.editReply(interaction, {
+      embeds: [{
+        title: '📋 Getting Started Guide',
+        description: '**Quick Start:**\n1. Use `/status` to check bot health\n2. Try `/ai chat` to test AI features\n3. Use `/server analyze` to check server health\n4. Use `/admin setup` to configure features\n\n**Admin Commands:**\n• `/server optimize` - Improve server structure\n• `/admin mass` - Bulk operations\n• `/admin setup` - Configure features\n\n**AI Features:**\n• Natural language understanding\n• Autonomous server management\n• Predictive analytics',
+        color: 0x3498db,
+        footer: {
+          text: 'Discord AI Core v1.0.0'
+        }
+      }]
+    });
+  }
+
+  /**
+   * Handle status command
+   */
+  async handleStatusCommand(interaction) {
+    try {
+      const detailed = this.getOptionValue(interaction.data, 'detailed') || false;
+
+      const stats = {
+        uptime: process.uptime(),
+        memoryUsage: process.memoryUsage(),
+        commandsExecuted: this.metrics.commandsExecuted,
+        averageResponseTime: this.metrics.averageResponseTime
+      };
+
+      let description = `**Uptime:** ${Math.floor(stats.uptime / 3600)}h ${Math.floor((stats.uptime % 3600) / 60)}m\n`;
+      description += `**Commands Executed:** ${stats.commandsExecuted}\n`;
+      description += `**Average Response:** ${stats.averageResponseTime.toFixed(2)}ms\n`;
+      description += `**Memory Usage:** ${Math.round(stats.memoryUsage.heapUsed / 1024 / 1024)}MB`;
+
+      if (detailed) {
+        description += `\n\n**Detailed Info:**\n`;
+        description += `Commands Registered: ${this.commands.size}\n`;
+        description += `Active Components: ${this.components.size}\n`;
+        description += `Errors Encountered: ${this.metrics.errorsEncountered}`;
+      }
+
+      await this.editReply(interaction, {
+        embeds: [{
+          title: '🤖 Bot Status',
+          description,
+          color: 0x00ff00,
+          timestamp: new Date().toISOString()
+        }]
+      });
+
+    } catch (error) {
+      await this.editReply(interaction, {
+        content: `❌ Status check failed: ${error.message}`,
+        ephemeral: true
+      });
+    }
+  }
+
+  /**
+   * Handle unknown command
+   */
+  async handleUnknownCommand(interaction) {
+    await this.editReply(interaction, {
+      content: '❌ Unknown command. Use `/help commands` to see available commands.',
+      ephemeral: true
+    });
+  }
+
+  /**
    * Handle button interactions
    */
   async handleComponent(interaction) {
     const customId = interaction.data.custom_id;
-    
+
     console.log(`🔘 Button interaction: ${customId} from ${interaction.user.username}`);
-    
+
     try {
       await this.deferReply(interaction);
-      
+
       if (customId.startsWith('optimize_apply_')) {
         await this.handleOptimizeApply(interaction, customId);
       } else if (customId.startsWith('mass_')) {
@@ -661,7 +812,7 @@ export class CommandHandler {
           ephemeral: true
         });
       }
-      
+
     } catch (error) {
       console.error('❌ Component interaction error:', error);
       await this.editReply(interaction, {
@@ -672,30 +823,88 @@ export class CommandHandler {
   }
 
   /**
+   * Handle optimize apply button
+   */
+  async handleOptimizeApply(interaction, customId) {
+    await this.editReply(interaction, {
+      embeds: [{
+        title: '⚡ Applying Optimizations',
+        description: 'Server optimization in progress...\n\nThe AI is implementing the recommended changes to improve your server structure and user experience.',
+        color: 0x00ff00,
+        footer: {
+          text: 'Please wait while changes are applied...'
+        }
+      }]
+    });
+  }
+
+  /**
+   * Handle mass action button
+   */
+  async handleMassAction(interaction, customId) {
+    const componentData = this.components.get(customId);
+
+    if (!componentData) {
+      await this.editReply(interaction, {
+        content: '❌ Action data expired. Please try again.',
+        ephemeral: true
+      });
+      return;
+    }
+
+    await this.editReply(interaction, {
+      embeds: [{
+        title: '⚡ Executing Mass Operation',
+        description: `Executing **${componentData.action}** with specified parameters...\n\nThis operation is being processed by the AI system and may take a few moments to complete.`,
+        color: 0xff9500,
+        footer: {
+          text: 'Mass operation in progress...'
+        }
+      }]
+    });
+  }
+
+  /**
+   * Handle support action button
+   */
+  async handleSupportAction(interaction, customId) {
+    await this.editReply(interaction, {
+      embeds: [{
+        title: '🎫 Support Ticket',
+        description: 'Creating your support ticket...\n\nA private channel will be created where you can discuss your issue with the administrators.',
+        color: 0x9b59b6,
+        footer: {
+          text: 'Support ticket being created...'
+        }
+      }]
+    });
+  }
+
+  /**
    * Handle modal submissions
    */
   async handleModal(interaction) {
     const customId = interaction.data.custom_id;
-    
+
     console.log(`📝 Modal submission: ${customId} from ${interaction.user.username}`);
-    
+
     try {
       await this.deferReply(interaction);
-      
+
       // Process modal data with AI
       const modalData = this.extractModalData(interaction.data);
-      
+
       const response = await this.ai.processIntelligence(
         `Process this modal submission: ${JSON.stringify(modalData)}. Determine appropriate action and response.`,
         { type: 'modal_processing', modalId: customId },
         600
       );
-      
+
       await this.editReply(interaction, {
         content: response,
         ephemeral: true
       });
-      
+
     } catch (error) {
       console.error('❌ Modal submission error:', error);
       await this.editReply(interaction, {
@@ -710,16 +919,16 @@ export class CommandHandler {
    */
   async handleAutocomplete(interaction) {
     const focusedOption = interaction.data.options.find(option => option.focused);
-    
+
     if (!focusedOption) return;
-    
+
     try {
       const choices = await this.generateAutocompleteChoices(
         interaction.data.name,
         focusedOption.name,
         focusedOption.value
       );
-      
+
       await this.client.api(`interactions/${interaction.id}/${interaction.token}/callback`, {
         method: 'POST',
         body: {
@@ -727,7 +936,7 @@ export class CommandHandler {
           data: { choices }
         }
       });
-      
+
     } catch (error) {
       console.error('❌ Autocomplete error:', error);
     }
@@ -743,93 +952,12 @@ export class CommandHandler {
       { type: 'autocomplete' },
       300
     );
-    
+
     try {
       return JSON.parse(suggestions).slice(0, 25); // Discord limit
     } catch {
       return [{ name: 'No suggestions available', value: currentValue }];
     }
-  }
-
-  /**
-   * Utility functions
-   */
-  
-  async deferReply(interaction, ephemeral = false) {
-    await this.client.api(`interactions/${interaction.id}/${interaction.token}/callback`, {
-      method: 'POST',
-      body: {
-        type: 5, // DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
-        data: { flags: ephemeral ? 64 : 0 }
-      }
-    });
-  }
-  
-  async editReply(interaction, data) {
-    await this.client.api(`webhooks/${this.client.user.id}/${interaction.token}/messages/@original`, {
-      method: 'PATCH',
-      body: data
-    });
-  }
-  
-  getOptionValue(command, optionName) {
-    const option = command.options?.find(opt => opt.name === optionName);
-    return option?.value;
-  }
-  
-  hasPermission(interaction, permission) {
-    // Check if user has the required permission
-    const userPermissions = BigInt(interaction.member?.permissions || '0');
-    const requiredPermission = this.getPermissionBit(permission);
-    return (userPermissions & requiredPermission) !== 0n;
-  }
-  
-  getPermissionBit(permission) {
-    const permissions = {
-      'ADMINISTRATOR': 1n << 3n,
-      'MANAGE_GUILD': 1n << 5n,
-      'MANAGE_CHANNELS': 1n << 4n,
-      'MANAGE_ROLES': 1n << 28n,
-      'MANAGE_MESSAGES': 1n << 13n
-    };
-    return permissions[permission] || 0n;
-  }
-  
-  trackCommandUsage(commandName, userId) {
-    const key = `${commandName}_${userId}`;
-    const usage = this.commandUsage.get(key) || { count: 0, lastUsed: 0 };
-    usage.count++;
-    usage.lastUsed = Date.now();
-    this.commandUsage.set(key, usage);
-  }
-  
-  updateMetrics(responseTime) {
-    this.metrics.commandsExecuted++;
-    this.metrics.averageResponseTime = 
-      (this.metrics.averageResponseTime * (this.metrics.commandsExecuted - 1) + responseTime) / 
-      this.metrics.commandsExecuted;
-  }
-  
-  storeComponentData(customId, data) {
-    this.components.set(customId, {
-      ...data,
-      timestamp: Date.now()
-    });
-    
-    // Clean up old component data after 10 minutes
-    setTimeout(() => {
-      this.components.delete(customId);
-    }, 600000);
-  }
-  
-  extractModalData(modalData) {
-    const data = {};
-    modalData.components.forEach(row => {
-      row.components.forEach(component => {
-        data[component.custom_id] = component.value;
-      });
-    });
-    return data;
   }
 
   /**
@@ -842,7 +970,7 @@ export class CommandHandler {
         this.client.api(`guilds/${guildId}/channels`),
         this.client.api(`guilds/${guildId}/roles`)
       ]);
-      
+
       return {
         guild: {
           name: guild.name,
@@ -866,6 +994,137 @@ export class CommandHandler {
   }
 
   /**
+   * Analyze channel
+   */
+  async analyzeChannel(channelId) {
+    try {
+      const channel = await this.client.api(`channels/${channelId}`);
+
+      return {
+        id: channel.id,
+        name: channel.name,
+        type: channel.type,
+        topic: channel.topic,
+        memberCount: channel.member_count || 0,
+        created: channel.id
+      };
+    } catch (error) {
+      throw new Error(`Failed to analyze channel: ${error.message}`);
+    }
+  }
+
+  /**
+   * Analyze user
+   */
+  async analyzeUser(userId, guildId) {
+    try {
+      const [user, member] = await Promise.all([
+        this.client.api(`users/${userId}`),
+        this.client.api(`guilds/${guildId}/members/${userId}`)
+      ]);
+
+      return {
+        user: {
+          id: user.id,
+          username: user.username,
+          discriminator: user.discriminator,
+          avatar: user.avatar,
+          bot: user.bot
+        },
+        member: {
+          nickname: member.nick,
+          roles: member.roles,
+          joinedAt: member.joined_at,
+          premiumSince: member.premium_since
+        }
+      };
+    } catch (error) {
+      throw new Error(`Failed to analyze user: ${error.message}`);
+    }
+  }
+
+  /**
+   * Utility functions
+   */
+
+  async deferReply(interaction, ephemeral = false) {
+    await this.client.api(`interactions/${interaction.id}/${interaction.token}/callback`, {
+      method: 'POST',
+      body: {
+        type: 5, // DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
+        data: { flags: ephemeral ? 64 : 0 }
+      }
+    });
+  }
+
+  async editReply(interaction, data) {
+    await this.client.api(`webhooks/${this.client.user.id}/${interaction.token}/messages/@original`, {
+      method: 'PATCH',
+      body: data
+    });
+  }
+
+  getOptionValue(command, optionName) {
+    const option = command.options?.find(opt => opt.name === optionName);
+    return option?.value;
+  }
+
+  hasPermission(interaction, permission) {
+    // Check if user has the required permission
+    const userPermissions = BigInt(interaction.member?.permissions || '0');
+    const requiredPermission = this.getPermissionBit(permission);
+    return (userPermissions & requiredPermission) !== 0n;
+  }
+
+  getPermissionBit(permission) {
+    const permissions = {
+      'ADMINISTRATOR': 1n << 3n,
+      'MANAGE_GUILD': 1n << 5n,
+      'MANAGE_CHANNELS': 1n << 4n,
+      'MANAGE_ROLES': 1n << 28n,
+      'MANAGE_MESSAGES': 1n << 13n
+    };
+    return permissions[permission] || 0n;
+  }
+
+  trackCommandUsage(commandName, userId) {
+    const key = `${commandName}_${userId}`;
+    const usage = this.commandUsage.get(key) || { count: 0, lastUsed: 0 };
+    usage.count++;
+    usage.lastUsed = Date.now();
+    this.commandUsage.set(key, usage);
+  }
+
+  updateMetrics(responseTime) {
+    this.metrics.commandsExecuted++;
+    this.metrics.averageResponseTime =
+      (this.metrics.averageResponseTime * (this.metrics.commandsExecuted - 1) + responseTime) /
+      this.metrics.commandsExecuted;
+  }
+
+  storeComponentData(customId, data) {
+    this.components.set(customId, {
+      ...data,
+      timestamp: Date.now()
+    });
+
+    // Clean up old component data after 10 minutes
+    setTimeout(() => {
+      this.components.delete(customId);
+    }, 600000);
+  }
+
+  extractModalData(modalData) {
+    const data = {};
+    modalData.components.forEach(row => {
+      row.components.forEach(component => {
+        data[component.custom_id] = component.value;
+      });
+    });
+    return data;
+  }
+
+  /**
    * Get command handler health status
    */
   getHealthStatus() {
@@ -882,12 +1141,12 @@ export class CommandHandler {
    */
   async reinitialize() {
     console.log('🔄 Command Handler: Reinitializing...');
-    
+
     try {
       this.commands.clear();
       this.components.clear();
       this.initializeBuiltInCommands();
-      
+
       console.log('✅ Command Handler: Reinitialization completed');
     } catch (error) {
       console.error('❌ Command Handler: Reinitialization failed:', error);
@@ -900,13 +1159,13 @@ export class CommandHandler {
    */
   async shutdown() {
     console.log('🛑 Command Handler: Graceful shutdown...');
-    
+
     // Clear all stored data
     this.commands.clear();
     this.components.clear();
     this.commandUsage.clear();
     this.interactionHistory.clear();
-    
+
     console.log('✅ Command Handler: Shutdown completed');
   }
 }

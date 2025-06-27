@@ -1,35 +1,36 @@
 // modules/discord-client.js - Discord Gateway Client (Bot Token Only)
 import { EventEmitter } from 'events';
+import WebSocket from 'ws';
 
 export class DiscordClient extends EventEmitter {
   constructor(options = {}) {
     super();
-    
+
     this.token = null;
     this.user = null;
     this.guilds = new Map();
     this.channels = new Map();
     this.users = new Map();
-    
+
     // Client configuration
     this.options = {
       intents: options.intents || 0,
       shardCount: options.shardCount || 1,
       ...options
     };
-    
+
     // Connection state
     this.ws = null;
     this.sessionId = null;
     this.lastSequence = null;
     this.heartbeatInterval = null;
     this.connected = false;
-    
+
     // API configuration
     this.apiVersion = '10';
     this.baseURL = `https://discord.com/api/v${this.apiVersion}`;
     this.gatewayURL = 'wss://gateway.discord.gg/?v=10&encoding=json';
-    
+
     // Rate limiting
     this.rateLimits = new Map();
     this.requestQueue = [];
@@ -42,21 +43,21 @@ export class DiscordClient extends EventEmitter {
     if (!token || !token.startsWith('Bot ')) {
       token = `Bot ${token}`;
     }
-    
+
     this.token = token;
-    
+
     console.log('🔐 Authenticating with Discord...');
-    
+
     try {
       // Get bot user info
       const user = await this.api('users/@me');
       this.user = user;
-      
+
       console.log(`✅ Authenticated as ${user.username}#${user.discriminator} (${user.id})`);
-      
+
       // Connect to gateway
       await this.connectGateway();
-      
+
       return user;
     } catch (error) {
       console.error('❌ Authentication failed:', error);
@@ -71,37 +72,43 @@ export class DiscordClient extends EventEmitter {
     return new Promise((resolve, reject) => {
       try {
         console.log('🌐 Connecting to Discord Gateway...');
-        
-        const WebSocket = globalThis.WebSocket || eval('require')('ws');
+
+        // Create WebSocket connection
         this.ws = new WebSocket(this.gatewayURL);
-        
+
         this.ws.on('open', () => {
           console.log('📡 Gateway connection established');
           this.sendIdentify();
         });
-        
+
         this.ws.on('message', (data) => {
-          this.handleGatewayMessage(JSON.parse(data.toString()));
+          try {
+            const message = data.toString();
+            this.handleGatewayMessage(JSON.parse(message));
+          } catch (error) {
+            console.error('❌ Failed to parse gateway message:', error);
+          }
         });
-        
+
         this.ws.on('close', (code) => {
           console.log(`🔌 Gateway connection closed (${code})`);
           this.connected = false;
-          this.emit('disconnect');
-          
+          this.emit('disconnect', code);
+
           // Auto-reconnect logic
           setTimeout(() => this.connectGateway(), 5000);
         });
-        
+
         this.ws.on('error', (error) => {
           console.error('❌ Gateway error:', error);
           reject(error);
         });
-        
+
         // Resolve when ready
         this.once('ready', resolve);
-        
+
       } catch (error) {
+        console.error('❌ Gateway connection failed:', error);
         reject(error);
       }
     });
@@ -126,8 +133,10 @@ export class DiscordClient extends EventEmitter {
         shard: [0, this.options.shardCount]
       }
     };
-    
-    this.ws.send(JSON.stringify(identify));
+
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(identify));
+    }
   }
 
   /**
@@ -135,27 +144,27 @@ export class DiscordClient extends EventEmitter {
    */
   handleGatewayMessage(packet) {
     const { op, d, s, t } = packet;
-    
+
     if (s) {
       this.lastSequence = s;
     }
-    
+
     switch (op) {
       case 0: // Dispatch
         this.handleDispatch(t, d);
         break;
-        
+
       case 1: // Heartbeat request
         this.sendHeartbeat();
         break;
-        
+
       case 10: // Hello
         this.startHeartbeat(d.heartbeat_interval);
         break;
-        
+
       case 11: // Heartbeat ACK
         break;
-        
+
       default:
         console.log(`🔍 Unknown gateway opcode: ${op}`);
     }
@@ -169,19 +178,19 @@ export class DiscordClient extends EventEmitter {
       case 'READY':
         this.handleReady(data);
         break;
-        
+
       case 'GUILD_CREATE':
         this.handleGuildCreate(data);
         break;
-        
+
       case 'INTERACTION_CREATE':
         this.emit('interactionCreate', data);
         break;
-        
+
       case 'MESSAGE_CREATE':
         this.emit('messageCreate', data);
         break;
-        
+
       default:
         this.emit(event.toLowerCase(), data);
     }
@@ -191,17 +200,17 @@ export class DiscordClient extends EventEmitter {
    * Handle ready event
    */
   handleReady(data) {
-    console.log(`🟢 Bot ready! Serving ${data.guilds.length} guilds`);
-    
+    console.log(`🟢 Bot ready! Logged in as ${data.user.username}`);
+
     this.user = data.user;
     this.sessionId = data.session_id;
     this.connected = true;
-    
+
     // Cache guilds
     for (const guild of data.guilds) {
       this.guilds.set(guild.id, guild);
     }
-    
+
     this.emit('ready');
   }
 
@@ -210,14 +219,14 @@ export class DiscordClient extends EventEmitter {
    */
   handleGuildCreate(guild) {
     this.guilds.set(guild.id, guild);
-    
+
     // Cache channels
     if (guild.channels) {
       for (const channel of guild.channels) {
         this.channels.set(channel.id, channel);
       }
     }
-    
+
     this.emit('guildCreate', guild);
   }
 
@@ -234,7 +243,7 @@ export class DiscordClient extends EventEmitter {
    * Send heartbeat
    */
   sendHeartbeat() {
-    if (this.ws && this.ws.readyState === 1) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({
         op: 1,
         d: this.lastSequence
@@ -246,7 +255,7 @@ export class DiscordClient extends EventEmitter {
    * Set bot presence
    */
   async setPresence(presence) {
-    if (this.ws && this.ws.readyState === 1) {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({
         op: 3,
         d: presence
@@ -259,7 +268,7 @@ export class DiscordClient extends EventEmitter {
    */
   async api(endpoint, options = {}) {
     const url = `${this.baseURL}/${endpoint}`;
-    
+
     const headers = {
       'Authorization': this.token,
       'Content-Type': 'application/json',
@@ -272,7 +281,7 @@ export class DiscordClient extends EventEmitter {
 
     try {
       const fetch = globalThis.fetch || (await import('node-fetch')).default;
-      
+
       const response = await fetch(url, {
         method: options.method || 'GET',
         headers,
@@ -300,7 +309,7 @@ export class DiscordClient extends EventEmitter {
   async checkRateLimit(endpoint) {
     const route = this.getRouteKey(endpoint);
     const rateLimit = this.rateLimits.get(route);
-    
+
     if (rateLimit && rateLimit.resetTime > Date.now()) {
       const waitTime = rateLimit.resetTime - Date.now();
       console.log(`⏳ Rate limited on ${route}, waiting ${waitTime}ms`);
@@ -312,7 +321,7 @@ export class DiscordClient extends EventEmitter {
     const route = this.getRouteKey(endpoint);
     const remaining = parseInt(headers.get('x-ratelimit-remaining')) || 1;
     const resetAfter = parseInt(headers.get('x-ratelimit-reset-after')) || 1;
-    
+
     if (remaining === 0) {
       this.rateLimits.set(route, {
         resetTime: Date.now() + (resetAfter * 1000)
@@ -481,11 +490,11 @@ export class DiscordClient extends EventEmitter {
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
     }
-    
+
     if (this.ws) {
       this.ws.close();
     }
-    
+
     this.connected = false;
     console.log('🔌 Disconnected from Discord');
   }

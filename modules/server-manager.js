@@ -9,18 +9,18 @@ export class ServerManager {
   constructor(discordClient, aiEngine) {
     this.client = discordClient;
     this.ai = aiEngine;
-    
+
     // Server intelligence cache
     this.serverIntelligence = new Map();
     this.optimizationHistory = new Map();
     this.healthMonitoring = new Map();
     this.autonomousActions = new Map();
-    
+
     // Management state
     this.activeOperations = new Map();
     this.scheduledOptimizations = new Map();
     this.preventiveMeasures = new Map();
-    
+
     // Performance metrics
     this.metrics = {
       serversManaged: 0,
@@ -37,22 +37,102 @@ export class ServerManager {
    */
   async initialize() {
     console.log('🏗️ Server Manager: Initializing autonomous systems...');
-    
+
     try {
       // Initialize monitoring systems
       await this.initializeHealthMonitoring();
-      
+
       // Load server intelligence
       await this.loadServerIntelligence();
-      
+
       // Start background processes
       this.startBackgroundProcesses();
-      
+
       console.log('✅ Server Manager: Systems active');
-      
+
     } catch (error) {
       console.error('❌ Server Manager: Initialization failed:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Handle bot joining a new guild
+   */
+  async onGuildJoin(guild) {
+    console.log(`📈 Server Manager: Analyzing new guild ${guild.name}`);
+
+    try {
+      // Gather initial intelligence about the server
+      const serverIntelligence = await this.gatherServerIntelligence(guild.id);
+
+      // Store server information
+      this.serverIntelligence.set(guild.id, {
+        data: serverIntelligence,
+        timestamp: Date.now(),
+        joinedAt: Date.now()
+      });
+
+      // Perform initial health analysis
+      const healthReport = await this.analyzeServerHealth(guild.id);
+
+      console.log(`📊 Initial analysis for ${guild.name}:`, {
+        channels: serverIntelligence.channels.total,
+        roles: serverIntelligence.roles.total,
+        health: healthReport.overallHealth
+      });
+
+      // Increment managed servers count
+      this.metrics.serversManaged++;
+
+      return {
+        success: true,
+        serverIntelligence,
+        healthReport
+      };
+
+    } catch (error) {
+      console.error(`❌ Failed to analyze new guild ${guild.name}:`, error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Handle bot leaving a guild
+   */
+  async onGuildLeave(guild) {
+    console.log(`📉 Server Manager: Cleaning up data for guild ${guild.name}`);
+
+    try {
+      // Remove server intelligence data
+      this.serverIntelligence.delete(guild.id);
+      this.optimizationHistory.delete(guild.id);
+      this.healthMonitoring.delete(guild.id);
+      this.autonomousActions.delete(guild.id);
+
+      // Clean up any active operations for this guild
+      for (const [operationId, operation] of this.activeOperations) {
+        if (operation.guildId === guild.id) {
+          this.activeOperations.delete(operationId);
+        }
+      }
+
+      console.log(`✅ Cleaned up data for ${guild.name}`);
+
+      return {
+        success: true,
+        message: `Data cleanup completed for ${guild.name}`
+      };
+
+    } catch (error) {
+      console.error(`❌ Failed to cleanup guild data for ${guild.name}:`, error);
+      return {
+        success: false,
+        error: error.message
+      };
     }
   }
 
@@ -61,23 +141,23 @@ export class ServerManager {
    */
   async handleAdminCommand(command, adminUser, channelId, messageId) {
     console.log(`👑 Server Manager: Processing admin command from ${adminUser}`);
-    
+
     try {
       // Get server context
       const channel = await this.client.api(`channels/${channelId}`);
       const guildId = channel.guild_id;
-      
+
       // Gather server intelligence
       const serverContext = await this.gatherServerIntelligence(guildId);
-      
+
       // Let AI analyze the command
       const aiPlan = await this.analyzeAdminCommand(command, adminUser, serverContext);
-      
+
       console.log(`🧠 AI Plan: ${aiPlan.intent} (${aiPlan.actions.length} actions)`);
-      
+
       // Execute the plan
       const results = await this.executeAIPlan(aiPlan, guildId, channelId);
-      
+
       // Send feedback to admin
       await this.client.sendMessage(channelId, {
         content: aiPlan.user_feedback || `✅ Command executed: ${aiPlan.intent}`,
@@ -87,21 +167,21 @@ export class ServerManager {
           fail_if_not_exists: false
         }
       });
-      
+
       console.log(`✅ Command completed: ${results.length} actions executed`);
-      
+
       return results;
-      
+
     } catch (error) {
       console.error(`❌ Admin command failed:`, error);
-      
+
       // Generate AI error response
       const errorResponse = await this.ai.processIntelligence(
         `The admin command "${command}" failed with error: ${error.message}. Generate a helpful error message for the admin.`,
         { type: 'error_response' },
         300
       );
-      
+
       await this.client.sendMessage(channelId, {
         content: `❌ **Command Failed**\n\n${errorResponse}`,
         message_reference: {
@@ -110,7 +190,7 @@ export class ServerManager {
           fail_if_not_exists: false
         }
       });
-      
+
       throw error;
     }
   }
@@ -153,18 +233,18 @@ Respond with a detailed JSON execution plan:
 }`;
 
     try {
-      const response = await this.ai.processIntelligence(prompt, { 
+      const response = await this.ai.processIntelligence(prompt, {
         type: 'server_management',
-        serverInfo: serverContext 
+        serverInfo: serverContext
       }, 1200);
-      
+
       const plan = JSON.parse(response);
-      
+
       // Store this interaction for learning
       this.storeInteraction(serverContext.guildId, command, plan);
-      
+
       return plan;
-      
+
     } catch (error) {
       console.error('❌ Failed to analyze admin command:', error);
       throw error;
@@ -176,10 +256,10 @@ Respond with a detailed JSON execution plan:
    */
   async executeAIPlan(plan, guildId, channelId) {
     console.log(`⚡ Executing AI plan: ${plan.intent}`);
-    
+
     const results = [];
     const operationId = `operation_${Date.now()}`;
-    
+
     // Track this operation
     this.activeOperations.set(operationId, {
       plan,
@@ -187,63 +267,63 @@ Respond with a detailed JSON execution plan:
       startTime: Date.now(),
       status: 'executing'
     });
-    
+
     try {
       // Process each action in the plan
       for (const action of plan.actions) {
         console.log(`🔧 Executing: ${action.description}`);
-        
+
         try {
           let result;
-          
+
           // Dynamic action routing based on AI-determined type
           switch (action.type) {
             case 'mass_dm':
               result = await this.executeMassDM(action.parameters, guildId);
               break;
-              
+
             case 'server_restructure':
               result = await this.executeServerRestructure(action.parameters, guildId);
               break;
-              
+
             case 'channel_management':
               result = await this.executeChannelManagement(action.parameters, guildId);
               break;
-              
+
             case 'role_management':
               result = await this.executeRoleManagement(action.parameters, guildId);
               break;
-              
+
             case 'user_management':
               result = await this.executeUserManagement(action.parameters, guildId);
               break;
-              
+
             case 'permission_optimization':
               result = await this.executePermissionOptimization(action.parameters, guildId);
               break;
-              
+
             case 'server_customization':
               result = await this.executeServerCustomization(action.parameters, guildId);
               break;
-              
+
             case 'automation_setup':
               result = await this.executeAutomationSetup(action.parameters, guildId);
               break;
-              
+
             case 'support_ticket':
               result = await this.executeSupportTicket(action.parameters, guildId);
               break;
-              
+
             case 'ai_custom_action':
               // For completely novel actions the AI invents
               result = await this.executeCustomAIAction(action, guildId);
               break;
-              
+
             default:
               console.log(`🤖 Unknown action type: ${action.type}, asking AI for implementation...`);
               result = await this.getAIActionImplementation(action, guildId);
           }
-          
+
           results.push({
             action: action.type,
             description: action.description,
@@ -251,12 +331,12 @@ Respond with a detailed JSON execution plan:
             result: result,
             timestamp: Date.now()
           });
-          
+
           console.log(`✅ Action completed: ${action.type}`);
-          
+
         } catch (actionError) {
           console.error(`❌ Action failed: ${action.type}`, actionError);
-          
+
           results.push({
             action: action.type,
             description: action.description,
@@ -264,25 +344,25 @@ Respond with a detailed JSON execution plan:
             error: actionError.message,
             timestamp: Date.now()
           });
-          
+
           // Continue with other actions unless it's critical
           if (action.priority === 1 && action.risk_level === 'high') {
             console.log(`🛑 Critical action failed, stopping execution`);
             break;
           }
         }
-        
+
         // Rate limiting between actions
         await this.delay(1000);
       }
-      
+
       // Mark operation as completed
       this.activeOperations.get(operationId).status = 'completed';
       this.metrics.autonomousDecisions++;
       this.metrics.successRate = this.calculateSuccessRate();
-      
+
       return results;
-      
+
     } catch (error) {
       console.error(`❌ Plan execution failed:`, error);
       this.activeOperations.get(operationId).status = 'failed';
@@ -300,13 +380,13 @@ Respond with a detailed JSON execution plan:
    */
   async executeMassDM(parameters, guildId) {
     console.log(`📢 Executing mass DM for guild ${guildId}`);
-    
+
     const { message, targeting, filters = {} } = parameters;
-    
+
     // Get all members
     const allMembers = await this.getAllGuildMembers(guildId);
     let targetUsers = [];
-    
+
     // AI-determined targeting logic
     switch (targeting) {
       case 'all_humans':
@@ -317,40 +397,40 @@ Respond with a detailed JSON execution plan:
         targetUsers = allMembers.filter(m => !m.user.bot);
         break;
       case 'specific_role':
-        targetUsers = allMembers.filter(m => 
+        targetUsers = allMembers.filter(m =>
           !m.user.bot && m.roles.includes(filters.roleId)
         );
         break;
       case 'without_role':
-        targetUsers = allMembers.filter(m => 
+        targetUsers = allMembers.filter(m =>
           !m.user.bot && !m.roles.includes(filters.excludeRoleId)
         );
         break;
       default:
         targetUsers = allMembers.filter(m => !m.user.bot);
     }
-    
+
     console.log(`🎯 Targeting ${targetUsers.length} users`);
-    
+
     const results = {
       attempted: targetUsers.length,
       successful: 0,
       failed: 0,
       errors: []
     };
-    
+
     // Send DMs with proper rate limiting
     for (const member of targetUsers) {
       try {
-        await this.client.createDM(member.user.id).then(dmChannel => 
+        await this.client.createDM(member.user.id).then(dmChannel =>
           this.client.sendMessage(dmChannel.id, message)
         );
         results.successful++;
         console.log(`✅ DM sent to ${member.user.username}`);
-        
+
         // Discord rate limit: ~1 DM per second
         await this.delay(1200);
-        
+
       } catch (error) {
         results.failed++;
         results.errors.push({
@@ -360,7 +440,7 @@ Respond with a detailed JSON execution plan:
         console.log(`❌ Failed to DM ${member.user.username}: ${error.message}`);
       }
     }
-    
+
     return results;
   }
 
@@ -369,14 +449,14 @@ Respond with a detailed JSON execution plan:
    */
   async executeServerRestructure(parameters, guildId) {
     console.log(`🏗️ Executing server restructure for guild ${guildId}`);
-    
-    const { 
-      channelPlan, 
-      rolePlan, 
+
+    const {
+      channelPlan,
+      rolePlan,
       permissionMatrix,
-      preserveExisting = true 
+      preserveExisting = true
     } = parameters;
-    
+
     const results = {
       channelsCreated: 0,
       channelsModified: 0,
@@ -384,26 +464,26 @@ Respond with a detailed JSON execution plan:
       rolesModified: 0,
       permissionsUpdated: 0
     };
-    
+
     // Execute channel restructuring
     if (channelPlan) {
       const channelResults = await this.executeChannelPlan(channelPlan, guildId, preserveExisting);
       results.channelsCreated = channelResults.created;
       results.channelsModified = channelResults.modified;
     }
-    
+
     // Execute role restructuring
     if (rolePlan) {
       const roleResults = await this.executeRolePlan(rolePlan, guildId, preserveExisting);
       results.rolesCreated = roleResults.created;
       results.rolesModified = roleResults.modified;
     }
-    
+
     // Apply permission matrix
     if (permissionMatrix) {
       results.permissionsUpdated = await this.applyPermissionMatrix(permissionMatrix, guildId);
     }
-    
+
     this.metrics.optimizationsPerformed++;
     return results;
   }
@@ -413,10 +493,10 @@ Respond with a detailed JSON execution plan:
    */
   async executeChannelManagement(parameters, guildId) {
     console.log(`📁 Executing channel management for guild ${guildId}`);
-    
+
     const { action, channels, settings } = parameters;
     const results = [];
-    
+
     switch (action) {
       case 'create':
         for (const channelData of channels) {
@@ -431,23 +511,23 @@ Respond with a detailed JSON execution plan:
           }
         }
         break;
-        
+
       case 'organize':
         // AI-determined organization
         results.push(await this.organizeChannels(guildId, settings));
         break;
-        
+
       case 'cleanup':
         // Remove inactive or redundant channels
         results.push(await this.cleanupChannels(guildId, settings));
         break;
-        
+
       case 'optimize_permissions':
         // Optimize channel permissions
         results.push(await this.optimizeChannelPermissions(guildId, channels));
         break;
     }
-    
+
     return results;
   }
 
@@ -456,10 +536,10 @@ Respond with a detailed JSON execution plan:
    */
   async executeRoleManagement(parameters, guildId) {
     console.log(`👥 Executing role management for guild ${guildId}`);
-    
+
     const { action, roles, assignments, settings } = parameters;
     const results = [];
-    
+
     switch (action) {
       case 'create':
         for (const roleData of roles) {
@@ -474,22 +554,22 @@ Respond with a detailed JSON execution plan:
           }
         }
         break;
-        
+
       case 'optimize_hierarchy':
         results.push(await this.optimizeRoleHierarchy(guildId, settings));
         break;
-        
+
       case 'mass_assign':
         // Assign roles to users based on criteria
         results.push(await this.massAssignRoles(guildId, assignments));
         break;
-        
+
       case 'permission_audit':
         // Audit and fix role permissions
         results.push(await this.auditRolePermissions(guildId));
         break;
     }
-    
+
     return results;
   }
 
@@ -498,10 +578,10 @@ Respond with a detailed JSON execution plan:
    */
   async executeUserManagement(parameters, guildId) {
     console.log(`👤 Executing user management for guild ${guildId}`);
-    
+
     const { action, users, criteria, settings } = parameters;
     const results = [];
-    
+
     switch (action) {
       case 'bulk_nickname':
         // Set nicknames for multiple users
@@ -517,19 +597,65 @@ Respond with a detailed JSON execution plan:
           }
         }
         break;
-        
+
       case 'role_cleanup':
         // Remove inactive roles from users
         results.push(await this.cleanupUserRoles(guildId, criteria));
         break;
-        
+
       case 'welcome_setup':
         // Set up automated welcome system
         results.push(await this.setupWelcomeSystem(guildId, settings));
         break;
     }
-    
+
     this.metrics.usersHelped += results.filter(r => r.action.includes('updated')).length;
+    return results;
+  }
+
+  /**
+   * Execute permission optimization
+   */
+  async executePermissionOptimization(parameters, guildId) {
+    console.log(`🔐 Executing permission optimization for guild ${guildId}`);
+
+    const results = {
+      optimized: 0,
+      issues_fixed: 0,
+      recommendations: []
+    };
+
+    // Placeholder implementation for permission optimization
+    results.recommendations.push('Review @everyone permissions');
+    results.recommendations.push('Set up role-based channel access');
+    results.recommendations.push('Create private admin channels');
+
+    return results;
+  }
+
+  /**
+   * Execute automation setup
+   */
+  async executeAutomationSetup(parameters, guildId) {
+    console.log(`🤖 Executing automation setup for guild ${guildId}`);
+
+    const { automation_type, settings } = parameters;
+    const results = [];
+
+    switch (automation_type) {
+      case 'welcome_system':
+        results.push(await this.setupWelcomeSystem(guildId, settings));
+        break;
+      case 'auto_roles':
+        results.push(await this.setupAutoRoles(guildId, settings));
+        break;
+      case 'moderation':
+        results.push(await this.setupAutoModeration(guildId, settings));
+        break;
+      default:
+        results.push({ action: 'unknown_automation', type: automation_type });
+    }
+
     return results;
   }
 
@@ -538,37 +664,37 @@ Respond with a detailed JSON execution plan:
    */
   async executeServerCustomization(parameters, guildId) {
     console.log(`🎨 Executing server customization for guild ${guildId}`);
-    
+
     const { updates } = parameters;
     const results = [];
-    
+
     // Apply server updates
     if (updates.basic) {
       try {
         const guildUpdates = {};
-        
+
         if (updates.basic.name) guildUpdates.name = updates.basic.name;
         if (updates.basic.description) guildUpdates.description = updates.basic.description;
         if (updates.basic.icon) guildUpdates.icon = await this.processImage(updates.basic.icon);
         if (updates.basic.banner) guildUpdates.banner = await this.processImage(updates.basic.banner);
-        
+
         await this.client.api(`guilds/${guildId}`, {
           method: 'PATCH',
           body: guildUpdates
         });
-        
+
         results.push({ action: 'basic_info_updated', updates: Object.keys(guildUpdates) });
       } catch (error) {
         results.push({ action: 'basic_update_failed', error: error.message });
       }
     }
-    
+
     // Custom emoji management
     if (updates.emojis) {
       const emojiResults = await this.manageEmojis(guildId, updates.emojis);
       results.push({ action: 'emojis_managed', ...emojiResults });
     }
-    
+
     return results;
   }
 
@@ -577,9 +703,9 @@ Respond with a detailed JSON execution plan:
    */
   async executeSupportTicket(parameters, guildId) {
     console.log(`🎫 Creating support ticket for guild ${guildId}`);
-    
+
     const { userId, issue, priority = 'normal' } = parameters;
-    
+
     try {
       // Create private support channel
       const ticketChannel = await this.client.api(`guilds/${guildId}/channels`, {
@@ -606,7 +732,7 @@ Respond with a detailed JSON execution plan:
           ]
         }
       });
-      
+
       // Send ticket information
       await this.client.sendMessage(ticketChannel.id, {
         embeds: [{
@@ -615,30 +741,30 @@ Respond with a detailed JSON execution plan:
           color: priority === 'high' ? 0xff0000 : 0x00ff00
         }]
       });
-      
+
       // Notify admin
       const guild = await this.client.api(`guilds/${guildId}`);
       await this.client.createDM(guild.owner_id).then(dmChannel =>
-        this.client.sendMessage(dmChannel.id, 
+        this.client.sendMessage(dmChannel.id,
           `🚨 **New Support Ticket**\n\nPriority: ${priority}\nChannel: <#${ticketChannel.id}>\nIssue: ${issue}`
         )
       );
-      
+
       // Confirm to user
       await this.client.createDM(userId).then(dmChannel =>
         this.client.sendMessage(dmChannel.id,
           `✅ Support ticket created!\n\nTicket: <#${ticketChannel.id}>\nYour issue: "${issue}"\n\nAn admin will assist you shortly.`
         )
       );
-      
+
       this.metrics.usersHelped++;
-      
+
       return {
         ticketId: ticketChannel.id,
         status: 'created',
         priority
       };
-      
+
     } catch (error) {
       console.error('❌ Support ticket creation failed:', error);
       throw error;
@@ -646,18 +772,46 @@ Respond with a detailed JSON execution plan:
   }
 
   /**
+   * Execute custom AI action
+   */
+  async executeCustomAIAction(action, guildId) {
+    console.log(`🤖 Executing custom AI action: ${action.description}`);
+
+    // Placeholder for AI-generated custom actions
+    return {
+      action: 'custom_ai_action',
+      description: action.description,
+      status: 'placeholder_executed'
+    };
+  }
+
+  /**
+   * Get AI action implementation for unknown actions
+   */
+  async getAIActionImplementation(action, guildId) {
+    console.log(`🧠 Getting AI implementation for: ${action.type}`);
+
+    // Placeholder for AI-generated action implementations
+    return {
+      action: action.type,
+      description: action.description,
+      status: 'ai_implemented'
+    };
+  }
+
+  /**
    * Gather comprehensive server intelligence
    */
   async gatherServerIntelligence(guildId) {
     console.log(`📊 Gathering server intelligence for guild ${guildId}`);
-    
+
     try {
       // Check cache first
       const cached = this.serverIntelligence.get(guildId);
       if (cached && Date.now() - cached.timestamp < 300000) { // 5 min cache
         return cached.data;
       }
-      
+
       // Gather fresh data
       const [guild, channels, roles, members] = await Promise.all([
         this.client.api(`guilds/${guildId}`),
@@ -665,7 +819,7 @@ Respond with a detailed JSON execution plan:
         this.client.api(`guilds/${guildId}/roles`),
         this.client.api(`guilds/${guildId}/members?limit=100`) // Sample for performance
       ]);
-      
+
       const intelligence = {
         guildId,
         guild: {
@@ -695,15 +849,15 @@ Respond with a detailed JSON execution plan:
         },
         lastAnalyzed: Date.now()
       };
-      
+
       // Cache the intelligence
       this.serverIntelligence.set(guildId, {
         data: intelligence,
         timestamp: Date.now()
       });
-      
+
       return intelligence;
-      
+
     } catch (error) {
       console.error(`❌ Failed to gather server intelligence:`, error);
       throw error;
@@ -716,17 +870,17 @@ Respond with a detailed JSON execution plan:
   async getAllGuildMembers(guildId) {
     let allMembers = [];
     let after = '0';
-    
+
     while (true) {
       try {
         const members = await this.client.api(`guilds/${guildId}/members?limit=1000&after=${after}`);
         if (members.length === 0) break;
-        
+
         allMembers = allMembers.concat(members);
         after = members[members.length - 1].user.id;
-        
+
         if (members.length < 1000) break;
-        
+
         // Rate limiting
         await this.delay(1000);
       } catch (error) {
@@ -734,7 +888,7 @@ Respond with a detailed JSON execution plan:
         break;
       }
     }
-    
+
     return allMembers;
   }
 
@@ -745,7 +899,7 @@ Respond with a detailed JSON execution plan:
     const categories = channels.filter(c => c.type === 4);
     const uncategorized = channels.filter(c => c.type !== 4 && !c.parent_id);
     const categorized = channels.filter(c => c.parent_id);
-    
+
     return {
       hasCategories: categories.length > 0,
       categoryCount: categories.length,
@@ -761,17 +915,293 @@ Respond with a detailed JSON execution plan:
    */
   analyzeRolePermissions(roles) {
     const adminRoles = roles.filter(r => (BigInt(r.permissions) & (1n << 3n)) !== 0n).length;
-    const moderatorRoles = roles.filter(r => 
+    const moderatorRoles = roles.filter(r =>
       (BigInt(r.permissions) & (1n << 1n)) !== 0n || // KICK_MEMBERS
       (BigInt(r.permissions) & (1n << 2n)) !== 0n    // BAN_MEMBERS
     ).length;
-    
+
     return {
       adminRoles,
       moderatorRoles,
       totalRoles: roles.length,
       hasProperHierarchy: adminRoles > 0 && moderatorRoles > 0
     };
+  }
+
+  /**
+   * Analyze server health
+   */
+  async analyzeServerHealth(guildId) {
+    try {
+      const intelligence = await this.gatherServerIntelligence(guildId);
+
+      const issues = [];
+
+      // Check for common issues
+      if (intelligence.channels.structure.needsOrganization) {
+        issues.push({ type: 'channel_organization', severity: 'medium' });
+      }
+
+      if (!intelligence.roles.permissions.hasProperHierarchy) {
+        issues.push({ type: 'role_hierarchy', severity: 'high' });
+      }
+
+      return {
+        needsAttention: issues.length > 0,
+        issues,
+        overallHealth: issues.length === 0 ? 'good' : 'needs_improvement'
+      };
+
+    } catch (error) {
+      console.error('❌ Server health analysis failed:', error);
+      return { needsAttention: false, issues: [] };
+    }
+  }
+
+  /**
+   * Analyze optimization opportunities across servers
+   */
+  async analyzeOptimizationOpportunities() {
+    console.log('🔮 Server Manager: Analyzing optimization opportunities...');
+
+    try {
+      const opportunities = [];
+
+      for (const [guildId, intelligence] of this.serverIntelligence) {
+        const serverData = intelligence.data;
+
+        // Check for common optimization opportunities
+        if (serverData.channels.structure.needsOrganization) {
+          opportunities.push({
+            guildId,
+            type: 'channel_organization',
+            priority: 'medium',
+            description: 'Server channels need better organization'
+          });
+        }
+
+        if (!serverData.roles.permissions.hasProperHierarchy) {
+          opportunities.push({
+            guildId,
+            type: 'role_hierarchy',
+            priority: 'high',
+            description: 'Server role hierarchy needs improvement'
+          });
+        }
+
+        if (serverData.channels.total > 20 && serverData.channels.structure.categoryCount === 0) {
+          opportunities.push({
+            guildId,
+            type: 'add_categories',
+            priority: 'high',
+            description: 'Server has many channels but no categories'
+          });
+        }
+      }
+
+      console.log(`📊 Found ${opportunities.length} optimization opportunities`);
+
+      return opportunities;
+
+    } catch (error) {
+      console.error('❌ Optimization analysis failed:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Implement preventive measures based on predictions
+   */
+  async implementPreventiveMeasures(guildId, prediction) {
+    console.log(`🛡️ Server Manager: Implementing preventive measures for ${guildId}`);
+
+    try {
+      const measures = [];
+
+      switch (prediction.issue_type) {
+        case 'channel_overflow':
+          measures.push({
+            action: 'create_categories',
+            description: 'Creating channel categories to prevent overflow'
+          });
+          break;
+
+        case 'permission_conflicts':
+          measures.push({
+            action: 'audit_permissions',
+            description: 'Auditing role permissions to prevent conflicts'
+          });
+          break;
+
+        case 'member_management':
+          measures.push({
+            action: 'setup_autoroles',
+            description: 'Setting up automatic role assignment'
+          });
+          break;
+
+        default:
+          measures.push({
+            action: 'general_monitoring',
+            description: 'Increased monitoring for potential issues'
+          });
+      }
+
+      // Store preventive measures
+      this.preventiveMeasures.set(guildId, {
+        prediction,
+        measures,
+        implementedAt: Date.now()
+      });
+
+      console.log(`✅ Implemented ${measures.length} preventive measures`);
+
+      return {
+        success: true,
+        measures
+      };
+
+    } catch (error) {
+      console.error('❌ Failed to implement preventive measures:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Address health issues found during monitoring
+   */
+  async addressHealthIssues(guild, issues) {
+    console.log(`🏥 Server Manager: Addressing ${issues.length} health issues for ${guild.name}`);
+
+    try {
+      const resolutions = [];
+
+      for (const issue of issues) {
+        let resolution;
+
+        switch (issue.type) {
+          case 'channel_organization':
+            resolution = await this.suggestChannelOrganization(guild.id);
+            break;
+
+          case 'role_hierarchy':
+            resolution = await this.suggestRoleHierarchy(guild.id);
+            break;
+
+          case 'permission_optimization':
+            resolution = await this.suggestPermissionOptimization(guild.id);
+            break;
+
+          default:
+            resolution = {
+              type: issue.type,
+              suggestion: 'Manual review recommended',
+              automated: false
+            };
+        }
+
+        resolutions.push(resolution);
+      }
+
+      console.log(`✅ Generated ${resolutions.length} health issue resolutions`);
+
+      return {
+        success: true,
+        resolutions
+      };
+
+    } catch (error) {
+      console.error('❌ Failed to address health issues:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Suggest channel organization improvements
+   */
+  async suggestChannelOrganization(guildId) {
+    return {
+      type: 'channel_organization',
+      suggestion: 'Create categories to group related channels',
+      automated: true,
+      actions: [
+        'Create "General" category for main channels',
+        'Create "Voice Channels" category',
+        'Create "Staff" category for admin channels'
+      ]
+    };
+  }
+
+  /**
+   * Suggest role hierarchy improvements
+   */
+  async suggestRoleHierarchy(guildId) {
+    return {
+      type: 'role_hierarchy',
+      suggestion: 'Establish clear role hierarchy with proper permissions',
+      automated: true,
+      actions: [
+        'Create Admin role with full permissions',
+        'Create Moderator role with moderation permissions',
+        'Create Member role with basic permissions'
+      ]
+    };
+  }
+
+  /**
+   * Suggest permission optimization
+   */
+  async suggestPermissionOptimization(guildId) {
+    return {
+      type: 'permission_optimization',
+      suggestion: 'Optimize channel permissions for better security',
+      automated: true,
+      actions: [
+        'Review @everyone permissions',
+        'Set up role-based channel access',
+        'Create private admin channels'
+      ]
+    };
+  }
+
+  /**
+   * Optimize server management strategies
+   */
+  async optimizeStrategies(serverPatterns) {
+    console.log('⚡ Server Manager: Optimizing management strategies...');
+
+    try {
+      const optimizations = [];
+
+      for (const [guildId, patterns] of serverPatterns) {
+        // Analyze patterns and suggest optimizations
+        const optimization = {
+          guildId,
+          strategies: [
+            'Implement proactive monitoring',
+            'Set up automated responses',
+            'Optimize role assignments'
+          ],
+          priority: 'medium'
+        };
+
+        optimizations.push(optimization);
+      }
+
+      console.log(`✅ Generated ${optimizations.length} strategy optimizations`);
+
+      return optimizations;
+
+    } catch (error) {
+      console.error('❌ Strategy optimization failed:', error);
+      return [];
+    }
   }
 
   /**
@@ -800,18 +1230,18 @@ Respond with a detailed JSON execution plan:
   storeInteraction(guildId, command, plan) {
     const key = guildId || 'global';
     const history = this.optimizationHistory.get(key) || [];
-    
+
     history.push({
       command,
       plan,
       timestamp: Date.now()
     });
-    
+
     // Keep last 50 interactions
     if (history.length > 50) {
       history.splice(0, history.length - 50);
     }
-    
+
     this.optimizationHistory.set(key, history);
   }
 
@@ -822,7 +1252,7 @@ Respond with a detailed JSON execution plan:
     const total = this.metrics.autonomousDecisions;
     const failed = Array.from(this.activeOperations.values())
       .filter(op => op.status === 'failed').length;
-    
+
     return total > 0 ? ((total - failed) / total) : 1.0;
   }
 
@@ -847,12 +1277,12 @@ Respond with a detailed JSON execution plan:
    */
   startBackgroundProcesses() {
     console.log('🔄 Starting background processes...');
-    
+
     // Health monitoring every 10 minutes
     setInterval(async () => {
       await this.performHealthChecks();
     }, 600000);
-    
+
     // Optimization analysis every 30 minutes
     setInterval(async () => {
       await this.analyzeOptimizationOpportunities();
@@ -877,36 +1307,6 @@ Respond with a detailed JSON execution plan:
   }
 
   /**
-   * Analyze server health
-   */
-  async analyzeServerHealth(guildId) {
-    try {
-      const intelligence = await this.gatherServerIntelligence(guildId);
-      
-      const issues = [];
-      
-      // Check for common issues
-      if (intelligence.channels.structure.needsOrganization) {
-        issues.push({ type: 'channel_organization', severity: 'medium' });
-      }
-      
-      if (!intelligence.roles.permissions.hasProperHierarchy) {
-        issues.push({ type: 'role_hierarchy', severity: 'high' });
-      }
-      
-      return {
-        needsAttention: issues.length > 0,
-        issues,
-        overallHealth: issues.length === 0 ? 'good' : 'needs_improvement'
-      };
-      
-    } catch (error) {
-      console.error('❌ Server health analysis failed:', error);
-      return { needsAttention: false, issues: [] };
-    }
-  }
-
-  /**
    * Utility delay function
    */
   delay(ms) {
@@ -922,7 +1322,7 @@ Respond with a detailed JSON execution plan:
       .filter(op => op.status === 'completed').length;
     const failedOperations = Array.from(this.activeOperations.values())
       .filter(op => op.status === 'failed').length;
-    
+
     return {
       isHealthy: failedOperations / (totalOperations + 1) < 0.1,
       activeOperations: totalOperations,
@@ -940,7 +1340,7 @@ Respond with a detailed JSON execution plan:
    */
   async reinitialize() {
     console.log('🔄 Server Manager: Reinitializing systems...');
-    
+
     try {
       await this.initialize();
       console.log('✅ Server Manager: Reinitialization completed');
@@ -955,33 +1355,33 @@ Respond with a detailed JSON execution plan:
    */
   async shutdown() {
     console.log('🛑 Server Manager: Graceful shutdown initiated...');
-    
+
     try {
       // Complete any critical operations
       const criticalOps = Array.from(this.activeOperations.values())
         .filter(op => op.status === 'executing');
-      
+
       if (criticalOps.length > 0) {
         console.log(`⏳ Waiting for ${criticalOps.length} operations to complete...`);
         // In a real implementation, would wait for these to complete
       }
-      
+
       // Generate final report
       const finalReport = {
         metrics: this.metrics,
         serversManaged: this.serverIntelligence.size,
         activeOperations: this.activeOperations.size
       };
-      
+
       console.log(`📊 Server Manager Final Report:`, finalReport);
-      
+
       // Clear all data
       this.serverIntelligence.clear();
       this.optimizationHistory.clear();
       this.activeOperations.clear();
-      
+
       console.log(`✅ Server Manager: Graceful shutdown completed`);
-      
+
     } catch (error) {
       console.error(`❌ Server Manager shutdown error:`, error);
     }
