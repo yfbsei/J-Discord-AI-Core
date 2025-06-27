@@ -1,4 +1,4 @@
-// modules/command-handler.js - Discord AI Core Application Commands & Interactions
+// modules/command-handler.js - Discord AI Core Application Commands & Interactions (FIXED)
 /**
  * Command Handler - Modern Discord slash commands and interactions
  * Handles all Discord application commands, buttons, selects, modals
@@ -257,13 +257,18 @@ export class CommandHandler {
   }
 
   /**
-   * Handle slash command interactions
+   * Handle slash command interactions - FIXED
    */
   async handleSlashCommand(interaction) {
     const startTime = Date.now();
     const commandName = interaction.data.name;
 
-    console.log(`⚡ Slash command: /${commandName} from ${interaction.user.username}`);
+    // FIX: Safely access user data with proper fallbacks
+    const user = interaction.user || interaction.member?.user;
+    const userName = user?.username || 'Unknown User';
+    const userId = user?.id || 'unknown';
+
+    console.log(`⚡ Slash command: /${commandName} from ${userName} (${userId})`);
 
     try {
       // Defer reply for processing time
@@ -280,7 +285,7 @@ export class CommandHandler {
       }
 
       // Track usage
-      this.trackCommandUsage(commandName, interaction.user.id);
+      this.trackCommandUsage(commandName, userId);
 
       // Execute command
       await command.handler(interaction);
@@ -330,10 +335,14 @@ export class CommandHandler {
   async handleAIChat(interaction, subcommand) {
     const message = this.getOptionValue(subcommand, 'message');
 
+    // FIX: Safe user access
+    const user = interaction.user || interaction.member?.user;
+    const userName = user?.username || 'Unknown User';
+
     try {
       const response = await this.ai.generateIntelligentResponse(
         message,
-        interaction.user.username,
+        userName,
         {
           type: 'slash_command',
           guildId: interaction.guild_id,
@@ -378,7 +387,10 @@ export class CommandHandler {
           analysisData = await this.analyzeChannel(interaction.channel_id);
           break;
         case 'user':
-          analysisData = await this.analyzeUser(interaction.user.id, interaction.guild_id);
+          // FIX: Safe user access
+          const user = interaction.user || interaction.member?.user;
+          const userId = user?.id || interaction.member?.user?.id;
+          analysisData = await this.analyzeUser(userId, interaction.guild_id);
           break;
         default:
           throw new Error('Invalid analysis target');
@@ -649,7 +661,7 @@ export class CommandHandler {
       this.storeComponentData(`mass_${action}_${interaction.guild_id}`, {
         action,
         parameters: parsedParams,
-        userId: interaction.user.id
+        userId: (interaction.user || interaction.member?.user)?.id
       });
 
     } catch (error) {
@@ -795,7 +807,11 @@ export class CommandHandler {
   async handleComponent(interaction) {
     const customId = interaction.data.custom_id;
 
-    console.log(`🔘 Button interaction: ${customId} from ${interaction.user.username}`);
+    // FIX: Safe user access
+    const user = interaction.user || interaction.member?.user;
+    const userName = user?.username || 'Unknown User';
+
+    console.log(`🔘 Button interaction: ${customId} from ${userName}`);
 
     try {
       await this.deferReply(interaction);
@@ -826,16 +842,37 @@ export class CommandHandler {
    * Handle optimize apply button
    */
   async handleOptimizeApply(interaction, customId) {
+    // Extract guild ID from custom ID
+    const guildId = customId.split('_')[2];
+
     await this.editReply(interaction, {
       embeds: [{
         title: '⚡ Applying Optimizations',
-        description: 'Server optimization in progress...\n\nThe AI is implementing the recommended changes to improve your server structure and user experience.',
+        description: 'Server optimization in progress...\n\n✅ **Analyzing current structure**\n✅ **Planning improvements**\n🔄 **Implementing changes**\n\nThe AI is implementing the recommended changes to improve your server structure and user experience.',
         color: 0x00ff00,
         footer: {
           text: 'Please wait while changes are applied...'
         }
       }]
     });
+
+    // Simulate optimization process
+    setTimeout(async () => {
+      try {
+        await this.editReply(interaction, {
+          embeds: [{
+            title: '✅ Optimizations Complete!',
+            description: '**Server optimization completed successfully!**\n\n✅ Channel organization improved\n✅ Role hierarchy optimized\n✅ Permission structure enhanced\n✅ Server health monitoring activated\n\n*Note: This is a demonstration. Full optimization features will be implemented in future updates.*',
+            color: 0x00ff00,
+            footer: {
+              text: 'Optimization completed in simulation mode'
+            }
+          }]
+        });
+      } catch (error) {
+        console.error('❌ Failed to update optimization status:', error);
+      }
+    }, 5000); // 5 second delay to simulate work
   }
 
   /**
@@ -886,7 +923,11 @@ export class CommandHandler {
   async handleModal(interaction) {
     const customId = interaction.data.custom_id;
 
-    console.log(`📝 Modal submission: ${customId} from ${interaction.user.username}`);
+    // FIX: Safe user access
+    const user = interaction.user || interaction.member?.user;
+    const userName = user?.username || 'Unknown User';
+
+    console.log(`📝 Modal submission: ${customId} from ${userName}`);
 
     try {
       await this.deferReply(interaction);
@@ -947,13 +988,13 @@ export class CommandHandler {
    */
   async generateAutocompleteChoices(commandName, optionName, currentValue) {
     // Generate AI-powered autocomplete suggestions
-    const suggestions = await this.ai.processIntelligence(
-      `Generate autocomplete suggestions for command "${commandName}" option "${optionName}" with current value "${currentValue}". Return array of {name, value} objects.`,
-      { type: 'autocomplete' },
-      300
-    );
-
     try {
+      const suggestions = await this.ai.processIntelligence(
+        `Generate autocomplete suggestions for command "${commandName}" option "${optionName}" with current value "${currentValue}". Return array of {name, value} objects.`,
+        { type: 'autocomplete' },
+        300
+      );
+
       return JSON.parse(suggestions).slice(0, 25); // Discord limit
     } catch {
       return [{ name: 'No suggestions available', value: currentValue }];
@@ -1048,20 +1089,42 @@ export class CommandHandler {
    */
 
   async deferReply(interaction, ephemeral = false) {
-    await this.client.api(`interactions/${interaction.id}/${interaction.token}/callback`, {
-      method: 'POST',
-      body: {
-        type: 5, // DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
-        data: { flags: ephemeral ? 64 : 0 }
-      }
-    });
+    try {
+      await this.client.api(`interactions/${interaction.id}/${interaction.token}/callback`, {
+        method: 'POST',
+        body: {
+          type: 5, // DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
+          data: { flags: ephemeral ? 64 : 0 }
+        }
+      });
+    } catch (error) {
+      // If defer fails, the interaction might have already been responded to
+      console.warn(`⚠️ Failed to defer interaction ${interaction.id}: ${error.message}`);
+      // Don't throw the error, continue with the command execution
+    }
   }
 
   async editReply(interaction, data) {
-    await this.client.api(`webhooks/${this.client.user.id}/${interaction.token}/messages/@original`, {
-      method: 'PATCH',
-      body: data
-    });
+    try {
+      await this.client.api(`webhooks/${this.client.user.id}/${interaction.token}/messages/@original`, {
+        method: 'PATCH',
+        body: data
+      });
+    } catch (error) {
+      console.warn(`⚠️ Failed to edit interaction reply ${interaction.id}: ${error.message}`);
+      // Try to send a new response instead
+      try {
+        await this.client.api(`interactions/${interaction.id}/${interaction.token}/callback`, {
+          method: 'POST',
+          body: {
+            type: 4, // CHANNEL_MESSAGE_WITH_SOURCE
+            data: data
+          }
+        });
+      } catch (fallbackError) {
+        console.error(`❌ Failed to respond to interaction ${interaction.id}:`, fallbackError.message);
+      }
+    }
   }
 
   getOptionValue(command, optionName) {

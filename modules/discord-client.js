@@ -1,4 +1,4 @@
-// modules/discord-client.js - Discord Gateway Client (Bot Token Only)
+// modules/discord-client.js - Discord Gateway Client (Bot Token Only) - FIXED
 import { EventEmitter } from 'events';
 import WebSocket from 'ws';
 
@@ -264,7 +264,7 @@ export class DiscordClient extends EventEmitter {
   }
 
   /**
-   * Discord API request handler
+   * Discord API request handler - FIXED
    */
   async api(endpoint, options = {}) {
     const url = `${this.baseURL}/${endpoint}`;
@@ -292,11 +292,33 @@ export class DiscordClient extends EventEmitter {
       this.updateRateLimit(endpoint, response.headers);
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        const errorText = await response.text();
+        let errorData;
+
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { message: errorText || `HTTP ${response.status}` };
+        }
+
         throw new Error(`Discord API Error: ${response.status} - ${JSON.stringify(errorData)}`);
       }
 
-      return response.json();
+      // FIX: Handle empty responses from Discord API
+      const responseText = await response.text();
+
+      if (!responseText || responseText.trim() === '') {
+        // Some Discord API endpoints return empty responses on success (like interaction callbacks)
+        return null;
+      }
+
+      try {
+        return JSON.parse(responseText);
+      } catch (parseError) {
+        console.warn(`⚠️ Failed to parse Discord API response as JSON: ${responseText}`);
+        return null;
+      }
+
     } catch (error) {
       console.error(`❌ API Error [${endpoint}]:`, error.message);
       throw error;
